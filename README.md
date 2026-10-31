@@ -56,7 +56,25 @@ List the sound cards:
 aplay -l
 ```
 
-Set `AUDIO_DEVICE` in `/etc/pianissimopi.conf` to your output, for example `hw:CARD=Device` for a typical USB DAC or `hw:CARD=sndrpihifiberry` for a HiFiBerry. Then restart:
+Each card shows up as a line like:
+
+```
+card 1: Device [USB Audio Device], device 0: USB Audio [USB Audio]
+```
+
+The card's name is the word after `card 1:`, here `Device`. ALSA needs it written as `plughw:CARD=Device`; a bare `Device` gives an "Unknown PCM" error. Only one program can use the card at a time, so stop PianissimoPi first if it's running (otherwise you get "Device or resource busy"), then test:
+
+```bash
+sudo systemctl stop pianissimopi
+```
+
+```bash
+speaker-test -D plughw:CARD=Device -c2 -t wav
+```
+
+You should hear "front left, front right" (Ctrl+C to stop). If it's silent, run `alsamixer -c Device` and make sure the output isn't muted (press `M`) or at zero.
+
+Set `AUDIO_DEVICE` in `/etc/pianissimopi.conf` to the same value, for example `plughw:CARD=Device` for a USB sound card like the Sabrent or `plughw:CARD=sndrpihifiberry` for a HiFiBerry. Then restart:
 
 ```bash
 sudo systemctl restart pianissimopi
@@ -87,7 +105,8 @@ journalctl -u pianissimopi -u pianissimopi-connect -f
 aconnect -l
 ```
 
-- **No sound, but the keyboard is connected**: wrong `AUDIO_DEVICE`. Test the output with `speaker-test -D <device> -c2`.
+- **No sound, but the keyboard is connected**: wrong `AUDIO_DEVICE`. Stop the synth (`sudo systemctl stop pianissimopi`), then test the output with `speaker-test -D plughw:CARD=<name> -c2 -t wav`, using the card name from `aplay -l`.
+- **"Device or resource busy"**: another program has the sound card open, usually PianissimoPi itself. `sudo fuser -v /dev/snd/*` shows which one.
 - **Keyboard not connected**: check it appears in `aconnect -i`. If its name doesn't contain "SE49", fix `MIDI_MATCH`. Reconnect by hand with `sudo /usr/local/bin/pianissimopi-connect`.
 - **Crackles**: raise `PERIOD_SIZE`, check the power supply (`vcgencmd get_throttled` should print `0x0`), and lower `POLYPHONY`. Check that the CPU is at full speed: `cat /sys/devices/system/cpu/cpufreq/policy0/scaling_governor` should print `performance`.
 
