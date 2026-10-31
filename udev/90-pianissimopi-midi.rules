@@ -1,0 +1,2 @@
+# When a USB MIDI device appears, (re)connect it to the piano synth.
+ACTION=="add", SUBSYSTEM=="sound", KERNEL=="midiC*D*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="pianissimopi-connect.service"

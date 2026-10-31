@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Wires hardware MIDI keyboards to FluidSynth's ALSA sequencer port.
+# Run at synth start and whenever a USB MIDI device is plugged in (via udev).
+set -uo pipefail
+
+CONF=/etc/pianissimopi.conf
+# shellcheck source=/dev/null
+[[ -r $CONF ]] && source "$CONF"
+: "${MIDI_MATCH:=}"
+
+find_synth() {
+  aconnect -o | sed -nE "s/^client ([0-9]+): 'FLUID Synth.*/\1/p" | head -n1
+}
+
+# Prints how many keyboards are connected to the synth after this pass.
+connect_inputs() {
+  local synth=$1 count=0 line id name
+  local re="^client ([0-9]+): '([^']*)' \[type=kernel"
+  while IFS= read -r line; do
+    [[ $line =~ $re ]] || continue
+    id=${BASH_REMATCH[1]}
+    name=${BASH_REMATCH[2]}
+    # Skip the System timer/announce client and the software Midi Through port.
+    [[ $id == 0 || $name == "Midi Through" ]] && continue
+    [[ -n $MIDI_MATCH && $name != *"$MIDI_MATCH"* ]] && continue
+    # aconnect fails if already connected; that's fine.
+    if aconnect "$id:0" "$synth:0" 2>/dev/null; then
+      echo "Connected '$name' ($id:0) -> FluidSynth ($synth:0)" >&2
+    fi
+    count=$((count + 1))
+  done < <(aconnect -i)
+  echo "$count"
+}
+
+# FluidSynth takes a few seconds to load a large soundfont, and a freshly
+# plugged keyboard can show up in the sequencer slightly after udev fires.
+for _ in $(seq 1 30); do
+  synth=$(find_synth)
+  if [[ -n $synth ]]; then
+    n=$(connect_inputs "$synth")
+    (( n > 0 )) && exit 0
+  fi
+  sleep 1
+done
+
+echo "No MIDI keyboard${MIDI_MATCH:+ matching '$MIDI_MATCH'} connected to FluidSynth" >&2
+exit 0

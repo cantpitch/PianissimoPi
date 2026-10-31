@@ -1,0 +1,24 @@
+[Unit]
+Description=PianissimoPi grand piano synth (FluidSynth)
+After=sound.target
+Wants=sound.target
+
+[Service]
+Type=simple
+User=pianissimopi
+Group=audio
+# "+" runs as root (needed to change the CPU governor); "-" ignores failures.
+ExecStartPre=-+/usr/local/bin/pianissimopi-cpu start
+ExecStart=/usr/local/bin/pianissimopi-synth
+# Leading "-": a missing keyboard must not fail the synth.
+ExecStartPost=-/usr/local/bin/pianissimopi-connect
+ExecStopPost=-+/usr/local/bin/pianissimopi-cpu stop
+Restart=on-failure
+RestartSec=2
+# Let FluidSynth raise its audio thread to realtime priority and lock samples in RAM.
+LimitRTPRIO=95
+LimitMEMLOCK=infinity
+Nice=-10
+
+[Install]
+WantedBy=multi-user.target

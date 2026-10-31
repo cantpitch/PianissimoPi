@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Sets the CPU frequency governor while the synth runs and restores it afterwards.
+# The Pi's default "ondemand" governor changes clock speed as load changes,
+# and each change can cause an audible click.
+# Usage (as root): pianissimopi-cpu start|stop
+set -euo pipefail
+
+CONF=/etc/pianissimopi.conf
+# shellcheck source=/dev/null
+[[ -r $CONF ]] && source "$CONF"
+# Set but empty in the config means "leave the CPU alone".
+CPU_GOVERNOR=${CPU_GOVERNOR-performance}
+
+SAVED=/run/pianissimopi-governor
+
+shopt -s nullglob
+govs=(/sys/devices/system/cpu/cpufreq/policy*/scaling_governor)
+if (( ${#govs[@]} == 0 )); then
+  echo "No CPU frequency scaling on this system; skipping" >&2
+  exit 0
+fi
+
+case ${1:-} in
+  start)
+    [[ -n $CPU_GOVERNOR ]] || exit 0
+    # Save the original only once, so a synth restart doesn't save "performance".
+    [[ -e $SAVED ]] || cat "${govs[0]}" > "$SAVED"
+    for g in "${govs[@]}"; do echo "$CPU_GOVERNOR" > "$g"; done
+    echo "CPU governor set to $CPU_GOVERNOR" >&2
+    ;;
+  stop)
+    [[ -r $SAVED ]] || exit 0
+    orig=$(<"$SAVED")
+    for g in "${govs[@]}"; do echo "$orig" > "$g"; done
+    rm -f "$SAVED"
+    echo "CPU governor restored to $orig" >&2
+    ;;
+  *)
+    echo "Usage: $0 start|stop" >&2
+    exit 2
+    ;;
+esac

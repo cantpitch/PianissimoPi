@@ -1,0 +1,7 @@
+[Unit]
+Description=Connect MIDI keyboards to PianissimoPi
+After=pianissimopi.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pianissimopi-connect

@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Starts FluidSynth as a headless ALSA-sequencer synth playing the piano soundfont.
+set -euo pipefail
+
+CONF=/etc/pianissimopi.conf
+# shellcheck source=/dev/null
+[[ -r $CONF ]] && source "$CONF"
+
+: "${SOUNDFONT:=/usr/local/share/pianissimopi/piano.sf2}"
+: "${AUDIO_DEVICE:=default}"
+: "${SAMPLE_RATE:=48000}"
+: "${PERIOD_SIZE:=64}"
+: "${PERIODS:=3}"
+: "${GAIN:=0.6}"
+: "${POLYPHONY:=128}"
+: "${REVERB:=1}"
+: "${ROOM_SIZE:=0.5}"
+: "${REVERB_LEVEL:=0.4}"
+
+if [[ ! -r $SOUNDFONT ]]; then
+  echo "Soundfont not found: $SOUNDFONT" >&2
+  exit 1
+fi
+
+# -i: no interactive shell, -s: stay running as a server.
+exec fluidsynth -i -s \
+  -a alsa -m alsa_seq \
+  -o audio.alsa.device="$AUDIO_DEVICE" \
+  -o audio.period-size="$PERIOD_SIZE" \
+  -o audio.periods="$PERIODS" \
+  -o synth.sample-rate="$SAMPLE_RATE" \
+  -o synth.gain="$GAIN" \
+  -o synth.polyphony="$POLYPHONY" \
+  -o synth.cpu-cores="$(nproc)" \
+  -o synth.chorus.active=0 \
+  -o synth.reverb.active="$REVERB" \
+  -o synth.reverb.room-size="$ROOM_SIZE" \
+  -o synth.reverb.level="$REVERB_LEVEL" \
+  -o shell.port=9800 \
+  "$SOUNDFONT"
